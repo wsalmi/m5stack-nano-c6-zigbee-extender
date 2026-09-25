@@ -1,17 +1,17 @@
 /*
  * nanoC6-ZigbeeExtender.ino
  * 
- * Zigbee Range Extender (Router) para M5Stack M5NanoC6 (ESP32-C6).
+ * Zigbee 3.0 Range Extender (Router) for M5Stack M5NanoC6 (ESP32-C6).
  *
- * Requisitos comportamentais:
- * 1. Ao iniciar/desconectado: Pisca em azul a cada 1s (500ms ON / 500ms OFF).
- * 2. Ao conectar: Acende azul por 2s, depois verde por 3s, e depois apaga.
- * 3. Botão pressionado por 5s: Desconecta da rede anterior, limpa NVRAM e volta ao modo de pareamento.
- * 4. Botão clicado 1x rapidamente: Força comunicação com o coordenador (0x0000) para teste de malha.
+ * Behavioral requirements:
+ * 1. Boot / Not Connected: Flashes blue every 1s (500ms ON / 500ms OFF).
+ * 2. On Connect: Solid blue for 2s, transitions to solid green for 3s, then turns off.
+ * 3. Button Long Press (5s): Leaves Zigbee network, clears NVRAM/NVS, and reboots into pairing mode.
+ * 4. Button Quick Click (< 1s): Forces ZCL/ZDO communication with Coordinator (0x0000) for mesh verification.
  */
 
 #ifndef ZIGBEE_MODE_ZCZR
-#error "O modo Zigbee ZCZR (Coordinator/Router) deve ser selecionado nas configurações de compilação!"
+#error "Zigbee ZCZR (Coordinator/Router) mode must be selected in compile settings!"
 #endif
 
 #include <Arduino.h>
@@ -19,7 +19,7 @@
 #include "esp_zigbee_core.h"
 #include "zdo/esp_zigbee_zdo_command.h"
 
-// Definições de hardware para M5NanoC6
+// Hardware pin definitions for M5NanoC6
 #ifndef BLUE_LED_PIN
 #define BLUE_LED_PIN 7
 #endif
@@ -39,7 +39,7 @@
 #define ZIGBEE_EXTENDER_ENDPOINT 1
 #define LED_BRIGHTNESS           120
 
-// Estados da máquina de conexão e LED
+// State machine definitions for connection and LED feedback
 enum DeviceState {
   STATE_SEARCHING_NWK,
   STATE_CONNECTED_BLUE,
@@ -47,8 +47,8 @@ enum DeviceState {
   STATE_OPERATIONAL
 };
 
-// Intervalo de Heartbeat periódico para manter Last Seen e Linkquality atualizados no Zigbee2MQTT
-#define HEARTBEAT_INTERVAL_MS    60000 // 60 segundos
+// Periodic heartbeat interval to keep Last Seen and Linkquality active in Zigbee2MQTT
+#define HEARTBEAT_INTERVAL_MS    60000 // 60 seconds
 
 DeviceState currentState = STATE_SEARCHING_NWK;
 unsigned long stateTimer = 0;
@@ -56,18 +56,18 @@ unsigned long blinkTimer = 0;
 bool blinkState = false;
 unsigned long lastHeartbeatTimer = 0;
 
-// Estado e timing do botão
+// Button state and debouncing timers
 bool lastButtonState = HIGH;
 unsigned long buttonPressStartTime = 0;
 bool longPressTriggered = false;
 
-// Pulso de LED para feedback de teste de comunicação
+// LED pulse duration for communication feedback
 unsigned long pingFeedbackUntil = 0;
 
-// Endpoint do Zigbee Range Extender
+// Zigbee Range Extender endpoint instance
 ZigbeeRangeExtender zbExtender(ZIGBEE_EXTENDER_ENDPOINT);
 
-// Funções auxiliares para controle de LED
+// LED helper functions
 void setLeds(bool blueLedOn, uint8_t r, uint8_t g, uint8_t b) {
   digitalWrite(BLUE_LED_PIN, blueLedOn ? HIGH : LOW);
   rgbLedWrite(RGB_LED_DATA_PIN, r, g, b);
@@ -77,34 +77,34 @@ void turnLedsOff() {
   setLeds(false, 0, 0, 0);
 }
 
-// Callback de resposta do ZDO ao testar comunicação com o Coordenador
+// ZDO response callback for Coordinator communication test
 static void activeEpResponseCb(esp_zb_zdp_status_t zdo_status, uint8_t ep_count, uint8_t *ep_id_list, void *user_ctx) {
   if (zdo_status == ESP_ZB_ZDP_STATUS_SUCCESS) {
-    Serial.printf("[ZDO] Comunicação com o coordenador OK! Endpoints ativos: %d\n", ep_count);
+    Serial.printf("[ZDO] Coordinator communication OK! Active endpoints: %d\n", ep_count);
   } else {
-    Serial.printf("[ZDO] Resposta recebida do coordenador com status: 0x%02X\n", zdo_status);
+    Serial.printf("[ZDO] Coordinator response received with status: 0x%02X\n", zdo_status);
   }
 }
 
-// Força comunicação ZCL (Read Attribute e ZDO) com o coordenador.
-// O recebimento desse pacote ZCL no coordenador (0x0000) força o Zigbee2MQTT / zigbee-herdsman
-// a registrar o LQI (linkquality) e atualizar o timestamp de 'last_seen'.
+// Forces ZCL (Read Attribute) and ZDO communication with the Coordinator (0x0000).
+// In Zigbee2MQTT / zigbee-herdsman, receiving this incoming frame updates the LQI (linkquality)
+// and refreshes the 'last_seen' timestamp.
 void heartbeatCoordinator(bool visualFeedback = false) {
   if (!Zigbee.connected()) {
-    Serial.println("[Heartbeat] Dispositivo não está conectado à rede Zigbee no momento.");
+    Serial.println("[Heartbeat] Device is not currently connected to a Zigbee network.");
     return;
   }
 
   if (visualFeedback) {
-    // Breve flash verde (250ms) ao clicar no botão
+    // Quick green pulse (250ms) on button click
     setLeds(false, 0, LED_BRIGHTNESS, 0);
     pingFeedbackUntil = millis() + 250;
   }
 
-  Serial.println("[Heartbeat] Enviando ZCL Read Attribute (Basic Cluster) ao Coordenador (0x0000)...");
+  Serial.println("[Heartbeat] Sending ZCL Read Attribute (Basic Cluster) to Coordinator (0x0000)...");
 
-  // 1. ZCL Read Attribute para o Coordenador (cluster Basic, attribute ZCL_VERSION)
-  // Esse frame ZCL gera o evento 'deviceMessage' no Zigbee2MQTT, atualizando linkquality e last_seen.
+  // 1. ZCL Read Attribute to Coordinator (cluster Basic, attribute ZCL_VERSION)
+  // This frame triggers the 'deviceMessage' event in Zigbee2MQTT, updating linkquality and last_seen.
   uint16_t basicAttr = ESP_ZB_ZCL_ATTR_BASIC_ZCL_VERSION_ID;
   esp_zb_zcl_read_attr_cmd_t read_req;
   memset(&read_req, 0, sizeof(read_req));
@@ -121,12 +121,12 @@ void heartbeatCoordinator(bool visualFeedback = false) {
   esp_zb_lock_release();
 
   if (errRead != ESP_OK) {
-    Serial.printf("[Heartbeat] Falha ao enviar ZCL Read: 0x%02X\n", errRead);
+    Serial.printf("[Heartbeat] Failed to send ZCL Read: 0x%02X\n", errRead);
   } else {
-    Serial.println("[Heartbeat] ZCL Read enviado com sucesso!");
+    Serial.println("[Heartbeat] ZCL Read sent successfully!");
   }
 
-  // 2. Requisição ZDO Active Endpoints como confirmação adicional de malha
+  // 2. ZDO Active Endpoints request for mesh verification
   esp_zb_zdo_active_ep_req_param_t req;
   req.addr_of_interest = 0x0000;
 
@@ -135,7 +135,7 @@ void heartbeatCoordinator(bool visualFeedback = false) {
   esp_zb_lock_release();
 }
 
-// Callback para identificar o dispositivo caso requisitado pela rede (ex: ZHA/Z2M Identify)
+// Callback for network-triggered device identification (e.g. ZHA / Z2M Identify feature)
 void identifyCb(uint16_t time) {
   static bool idBlink = false;
   if (time == 0) {
@@ -159,37 +159,37 @@ void setup() {
   Serial.println("  M5NanoC6 - Zigbee Range Extender (Router) ");
   Serial.println("==========================================");
 
-  // Inicialização dos pinos
+  // Pin initialization
   pinMode(BLUE_LED_PIN, OUTPUT);
   digitalWrite(BLUE_LED_PIN, LOW);
 
   pinMode(RGB_LED_PWR_PIN, OUTPUT);
-  digitalWrite(RGB_LED_PWR_PIN, HIGH); // Ativa energia do WS2812
+  digitalWrite(RGB_LED_PWR_PIN, HIGH); // Enable power to WS2812 RGB LED
   delay(10);
   rgbLedWrite(RGB_LED_DATA_PIN, 0, 0, 0);
 
   pinMode(BTN_PIN, INPUT_PULLUP);
 
-  // Configuração do Endpoint Zigbee Range Extender
+  // Zigbee Range Extender endpoint configuration
   zbExtender.onIdentify(identifyCb);
   zbExtender.setManufacturerAndModel("M5Stack", "NanoC6-ZigbeeExtender");
   zbExtender.setPowerSource(ZB_POWER_SOURCE_MAINS);
 
-  Serial.println("[Zigbee] Adicionando endpoint Range Extender ao núcleo...");
+  Serial.println("[Zigbee] Adding Range Extender endpoint to Zigbee Core...");
   Zigbee.addEndpoint(&zbExtender);
 
-  // Configuração do modo Roteador com até 20 filhos
+  // Configure Router mode with up to 20 child end devices
   esp_zb_cfg_t zigbeeConfig = ZIGBEE_DEFAULT_ROUTER_CONFIG();
   zigbeeConfig.nwk_cfg.zczr_cfg.max_children = 20;
 
-  Serial.println("[Zigbee] Inicializando stack Zigbee como Roteador...");
+  Serial.println("[Zigbee] Initializing Zigbee stack as Router...");
   if (!Zigbee.begin(&zigbeeConfig)) {
-    Serial.println("[Zigbee] Falha ao iniciar Zigbee! Reiniciando em 2 segundos...");
+    Serial.println("[Zigbee] Zigbee failed to start! Rebooting in 2 seconds...");
     delay(2000);
     ESP.restart();
   }
 
-  Serial.println("[Zigbee] Stack iniciado com sucesso. Aguardando conexão...");
+  Serial.println("[Zigbee] Stack initialized successfully. Searching for network...");
   currentState = STATE_SEARCHING_NWK;
   blinkTimer = millis();
 }
@@ -197,7 +197,7 @@ void setup() {
 void updateLedStateMachine() {
   unsigned long now = millis();
 
-  // Tratamento de feedback temporário de ping
+  // Temporary ping feedback LED pulse handling
   if (pingFeedbackUntil > 0) {
     if (now >= pingFeedbackUntil) {
       pingFeedbackUntil = 0;
@@ -205,13 +205,13 @@ void updateLedStateMachine() {
         turnLedsOff();
       }
     } else {
-      return; // Mantém o feedback de teste ativo temporariamente
+      return; // Keep feedback LED active until expiration
     }
   }
 
   switch (currentState) {
     case STATE_SEARCHING_NWK:
-      // Pisca em azul a cada 1s (500ms ON / 500ms OFF)
+      // Flashes blue every 1s (500ms ON / 500ms OFF)
       if (now - blinkTimer >= 500) {
         blinkTimer = now;
         blinkState = !blinkState;
@@ -222,48 +222,48 @@ void updateLedStateMachine() {
         }
       }
 
-      // Verifica se conectou
+      // Check if connection is established
       if (Zigbee.connected()) {
-        Serial.println("[Zigbee] Conexão estabelecida com a rede!");
+        Serial.println("[Zigbee] Network connection established!");
         currentState = STATE_CONNECTED_BLUE;
         stateTimer = now;
-        setLeds(true, 0, 0, LED_BRIGHTNESS); // Azul sólido
+        setLeds(true, 0, 0, LED_BRIGHTNESS); // Solid blue
       }
       break;
 
     case STATE_CONNECTED_BLUE:
-      // Mantém azul por 2 segundos (2000ms)
+      // Keep solid blue for 2 seconds (2000ms)
       if (now - stateTimer >= 2000) {
-        Serial.println("[Status] Transicionando para Verde por 3 segundos...");
+        Serial.println("[Status] Transitioning to Solid Green for 3 seconds...");
         currentState = STATE_CONNECTED_GREEN;
         stateTimer = now;
-        setLeds(false, 0, LED_BRIGHTNESS, 0); // Verde sólido
+        setLeds(false, 0, LED_BRIGHTNESS, 0); // Solid green
       }
       break;
 
     case STATE_CONNECTED_GREEN:
-      // Mantém verde por 3 segundos (3000ms)
+      // Keep solid green for 3 seconds (3000ms)
       if (now - stateTimer >= 3000) {
-        Serial.println("[Status] Conexão concluída. Apagando LEDs para operação discreta.");
+        Serial.println("[Status] Connection confirmed. Turning off LEDs for discrete operation.");
         currentState = STATE_OPERATIONAL;
         turnLedsOff();
         lastHeartbeatTimer = now;
-        // Envia heartbeat inicial logo após a conexão se estabilizar
+        // Send initial heartbeat once operational state is reached
         heartbeatCoordinator(false);
       }
       break;
 
     case STATE_OPERATIONAL:
-      // Se desconectar da rede inesperadamente, volta a buscar conexão
+      // If connection is lost unexpectedly, return to searching state
       if (!Zigbee.connected()) {
-        Serial.println("[Zigbee] Conexão perdida. Retornando ao modo de busca...");
+        Serial.println("[Zigbee] Connection lost. Returning to network pairing mode...");
         currentState = STATE_SEARCHING_NWK;
         blinkTimer = now;
       } else {
-        // Envio periódico de Heartbeat para manter Linkquality e Last Seen atualizados no Zigbee2MQTT
+        // Periodic heartbeat to keep Linkquality and Last Seen updated in Zigbee2MQTT
         if (now - lastHeartbeatTimer >= HEARTBEAT_INTERVAL_MS) {
           lastHeartbeatTimer = now;
-          Serial.println("[Heartbeat] Enviando heartbeat periódico...");
+          Serial.println("[Heartbeat] Sending periodic heartbeat...");
           heartbeatCoordinator(false);
         }
       }
@@ -275,40 +275,40 @@ void handleButton() {
   int reading = digitalRead(BTN_PIN);
   unsigned long now = millis();
 
-  // Transição: Botão pressionado (HIGH -> LOW)
+  // Transition: Button pressed (HIGH -> LOW)
   if (lastButtonState == HIGH && reading == LOW) {
     buttonPressStartTime = now;
     longPressTriggered = false;
   }
 
-  // Botão mantido pressionado
+  // Button held down
   if (reading == LOW) {
     unsigned long heldDuration = now - buttonPressStartTime;
 
-    // Se segurado por 5 segundos ou mais
+    // Held for 5 seconds or more: Trigger factory reset
     if (heldDuration >= 5000 && !longPressTriggered) {
       longPressTriggered = true;
-      Serial.println("\n[Botão] Botão pressionado por 5 segundos!");
-      Serial.println("[Botão] Desconectando da rede e redefinindo Zigbee para padrões de fábrica...");
+      Serial.println("\n[Button] Button pressed for 5 seconds!");
+      Serial.println("[Button] Disconnecting from network and factory resetting Zigbee stack...");
       
-      // Indicação visual de reset (vermelho por 1s)
+      // Visual reset warning: solid red for 1s
       setLeds(false, LED_BRIGHTNESS, 0, 0);
       delay(1000);
       turnLedsOff();
 
-      // Executa o factory reset do Zigbee (limpa credenciais da NVRAM e reinicia)
+      // Factory reset Zigbee stack (erases NVRAM/NVS credentials and reboots)
       Zigbee.factoryReset(true);
     }
   }
 
-  // Transição: Botão solto (LOW -> HIGH)
+  // Transition: Button released (LOW -> HIGH)
   if (lastButtonState == LOW && reading == HIGH) {
     unsigned long pressedDuration = now - buttonPressStartTime;
 
-    // Se não foi um long press e durou entre 50ms (debounce) e 4999ms
+    // Short click: between 50ms (debounce) and 4999ms
     if (!longPressTriggered && pressedDuration >= 50) {
-      Serial.printf("[Botão] Clique rápido detectado (%lu ms).\n", pressedDuration);
-      heartbeatCoordinator(true); // Força comunicação com feedback visual
+      Serial.printf("[Button] Quick click detected (%lu ms).\n", pressedDuration);
+      heartbeatCoordinator(true); // Force communication with visual LED feedback
     }
   }
 
@@ -320,4 +320,3 @@ void loop() {
   handleButton();
   delay(10);
 }
-

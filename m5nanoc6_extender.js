@@ -1,11 +1,11 @@
 /**
- * External Converter para o M5NanoC6 Zigbee Extender no Zigbee2MQTT.
+ * External Converter for M5NanoC6 Zigbee Extender in Zigbee2MQTT.
  *
- * Como instalar no Zigbee2MQTT:
- * 1. Abra o painel do Zigbee2MQTT no navegador.
- * 2. Acesse: Settings (Configurações) -> External converters (Conversores externos).
- * 3. Adicione o arquivo "m5nanoc6_extender.js" com o conteúdo abaixo.
- * 4. Salve.
+ * Installation instructions:
+ * 1. Open the Zigbee2MQTT web frontend.
+ * 2. Navigate to: Settings -> External converters.
+ * 3. Add a new converter named "m5nanoc6_extender.js" and paste the code below.
+ * 4. Click Submit / Save.
  */
 
 const {identify} = require('zigbee-herdsman-converters/lib/modernExtend');
