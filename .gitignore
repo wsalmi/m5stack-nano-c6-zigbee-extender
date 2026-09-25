@@ -6,6 +6,7 @@
 # Build and temporary files
 build/
 *.bin
+!firmware/*.bin
 *.elf
 *.hex
 *.map

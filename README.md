@@ -5,6 +5,13 @@
 [![SoC: ESP32-C6](https://img.shields.io/badge/SoC-ESP32--C6%20(RISC--V)-blue.svg)](https://www.espressif.com/en/products/socs/esp32-c6)
 [![Zigbee: 3.0 Router](https://img.shields.io/badge/Zigbee-3.0%20Router%20%2F%20Extender-green.svg)](https://csa-iot.org/all-solutions/zigbee/)
 [![Platform: Arduino-ESP32](https://img.shields.io/badge/Platform-Arduino--ESP32%20v3.x-teal.svg)](https://github.com/espressif/arduino-esp32)
+[![Firmware: v1.0.0](https://img.shields.io/badge/Firmware-v1.0.0-blue.svg)](./firmware/)
+
+<p align="center">
+  <img src="./assets/m5nanoc6_zigbee_icon.png" width="180" alt="M5NanoC6 Zigbee Icon" />
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="./assets/m5nanoc6_thread_icon.png" width="180" alt="M5NanoC6 Thread Icon" />
+</p>
 
 Open-source firmware turning the ultra-compact **M5Stack M5NanoC6** (ESP32-C6FH4) development board into a high-performance **Zigbee 3.0 Range Extender (Router)**.
 
@@ -93,6 +100,31 @@ In Home Assistant using the native **ZHA (Zigbee Home Automation)** integration:
 3. Power on the M5NanoC6 (it will blink blue).
 4. ZHA will discover the device as `M5Stack NanoC6-ZigbeeExtender` and configure it as a router.
 5. In the ZHA Network Visualization map, the device will appear with routing connections to nearby nodes.
+
+---
+
+## 🔥 M5Burner & Pre-compiled Binaries (v1.0.0)
+
+Pre-compiled binary releases are versioned and ready in the [`firmware/`](./firmware/) directory:
+
+| File | Offset / Address | Description |
+| :--- | :--- | :--- |
+| **`m5nanoc6_zigbee_extender_v1.0.0_merged.bin`** | `0x0000` | **Recommended:** Complete all-in-one flash image (Bootloader + Partitions + App). |
+| **`m5nanoc6_zigbee_extender_v1.0.0.bin`** | `0x10000` | Application firmware binary. |
+| **`bootloader.bin`** | `0x0000` | ESP32-C6 second-stage bootloader. |
+| **`partitions.bin`** | `0x8000` | Zigbee ZCZR 4MB partition table. |
+
+### Flashing with M5Burner (Custom Burn)
+1. Open **M5Burner** on your computer.
+2. Select **NanoC6** as the target device.
+3. Use the **Custom Burn** option:
+   - Select `firmware/m5nanoc6_zigbee_extender_v1.0.0_merged.bin` at address `0x0000`.
+4. Click **Burn**!
+
+### Community Publication Assets
+Custom square 256x256 flat icons are available in [`assets/`](./assets/):
+- `assets/m5nanoc6_zigbee_icon.png` (256x256 flat icon)
+- `assets/m5nanoc6_thread_icon.png` (256x256 flat icon)
 
 ---
 
