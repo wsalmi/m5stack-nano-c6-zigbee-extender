@@ -8,19 +8,17 @@
 [![Firmware: v1.0.0](https://img.shields.io/badge/Firmware-v1.0.0-blue.svg)](./firmware/)
 
 <p align="center">
-  <img src="./assets/m5nanoc6_zigbee_icon.png" width="180" alt="M5NanoC6 Zigbee Icon" />
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="./assets/m5nanoc6_thread_icon.png" width="180" alt="M5NanoC6 Thread Icon" />
+  <img src="./assets/m5nanoc6_zigbee_icon.png" width="200" alt="M5NanoC6 Zigbee Icon" />
 </p>
 
 <p align="center">
   <b>Language / Idioma:</b><br>
-  <a href="#english">English</a> | <a href="#español">Español</a> | <a href="#português">Português</a>
+  <a href="#english">English</a> | <a href="#espanol">Español</a> | <a href="#portugues">Português</a>
 </p>
 
 ---
 
-<a name="english"></a>
+<a id="english"></a>
 ## 🇬🇧 English
 
 Open-source firmware turning the ultra-compact **M5Stack M5NanoC6** (ESP32-C6FH4) development board into a high-performance **Zigbee 3.0 Range Extender (Router)**.
@@ -121,7 +119,7 @@ arduino-cli monitor -p /dev/cu.usbmodem14101 -c baudrate=115200
 
 ---
 
-<a name="español"></a>
+<a id="espanol"></a><a id="español"></a>
 ## 🇪🇸 Español
 
 Firmware de código abierto que convierte la placa de desarrollo **M5Stack M5NanoC6** (ESP32-C6FH4) en un **Extensor de Alcance (Router) Zigbee 3.0** de alto rendimiento.
@@ -172,7 +170,7 @@ Los binarios precompilados se encuentran versionados en [`firmware/`](./firmware
 
 ---
 
-<a name="português"></a>
+<a id="portugues"></a><a id="português"></a>
 ## 🇧🇷 Português
 
 Firmware de código aberto que transforma a placa **M5Stack M5NanoC6** (ESP32-C6FH4) em um **Extensor de Alcance (Roteador) Zigbee 3.0** de alto desempenho.
