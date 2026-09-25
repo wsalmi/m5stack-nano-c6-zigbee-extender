@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Build and temporary files
+build/
+*.bin
+*.elf
+*.hex
+*.map
+*.o
+*.d
+
+# Logs
+*.log
+
+# Editor directories
+.vscode/
+.idea/
